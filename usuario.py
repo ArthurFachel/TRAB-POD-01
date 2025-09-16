@@ -17,6 +17,10 @@ class User:
              return True
         return False
     
+    @classmethod
+    def n_instance(cls):
+        
+       return len(cls.user_list)
     
     @staticmethod
     def encrypt(password: str) -> str:
@@ -33,3 +37,9 @@ class User:
         self.user_list.append({"name": self.user, "token": self.token})
         return self.token
     
+    
+#Teste    
+u = User()
+token = u.sign("arthur", "minhasenha")
+
+print(User.n_instance())
