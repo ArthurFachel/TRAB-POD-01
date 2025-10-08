@@ -48,11 +48,9 @@ class JanelaCadastro(ctk.CTkToplevel):
         confirmar = self.entry_confirmar_senha.get()
         email = self.entry_email.get().strip()
 
-        # As validações continuam as mesmas...
         if not usuario or not senha:
             self.label_mensagem.configure(text="Usuário e senha são obrigatórios!", text_color="red")
             return
-        # ... (outras validações) ...
         if senha != confirmar:
             self.label_mensagem.configure(text="As senhas não coincidem!", text_color="red")
             return
@@ -62,15 +60,11 @@ class JanelaCadastro(ctk.CTkToplevel):
         if usuario in usuarios:
             self.label_mensagem.configure(text="Usuário já existe! Escolha outro.", text_color="red")
             return
-
-        # --- ALTERAÇÃO PRINCIPAL AQUI ---
-        # 1. Crie uma instância da classe User
+        #classe user em aplicação
         novo_usuario = User(nome=usuario, senha=senha, email=email)
         
-        # 2. Salve o dicionário gerado pelo método to_dict()
         usuarios[usuario] = novo_usuario.to_dict()
         salvar_usuarios(usuarios)
-        # --- FIM DA ALTERAÇÃO ---
         
         self.label_mensagem.configure(text="Cadastro realizado com sucesso!", text_color="green")
         tocar_som(SOM_ACERTO, volume=0.2)
