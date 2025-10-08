@@ -1,4 +1,4 @@
-from midia import Midia 
+from .midia import Midia 
 class Podcast(Midia):
     def __init__(self, titulo: str, duracao: float, artista: str, host: str, episodios: int):
         super().__init__(titulo, duracao, artista)

@@ -1,7 +1,7 @@
 import regex as re
 import json
-from user import User
-from musica import Musica
+from .user import User
+from .musica import Musica
 
 filepath = 'aaa.md'
 

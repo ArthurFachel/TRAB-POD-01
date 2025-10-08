@@ -1,4 +1,4 @@
-from midia import Midia
+from .midia import Midia
 
 class Musica(Midia):
     def __init__(self, titulo, artista, duracao, genero):
