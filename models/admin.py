@@ -25,14 +25,11 @@ def top_musicas_reproduzidas(top_n: int = 10) -> List[Dict]:
     for u in usuarios.values():
         historico = u.get("historico", []) or []
         for t in historico:
-            # Converte o item do histórico para string para contagem,
-            # seja ele um dict ou uma str.
             titulo = t.get('titulo') if isinstance(t, dict) else str(t)
             if titulo:
                 counts[titulo] = counts.get(titulo, 0) + 1
 
     for m in biblioteca:
-        # VERIFICAÇÃO ADICIONADA: Ignora itens que não são dicionários.
         if not isinstance(m, dict):
             continue
         if m.get("tipo") == "musica":
@@ -50,7 +47,6 @@ def playlist_mais_popular() -> Optional[Dict]:
         if isinstance(u, dict):
             global_hist.extend(u.get("historico", []) or [])
     
-    # Normaliza o histórico para conter apenas strings de títulos
     normalized_hist = []
     for item in global_hist:
         if isinstance(item, dict):
@@ -65,14 +61,12 @@ def playlist_mais_popular() -> Optional[Dict]:
         if not isinstance(user, dict):
             continue
         for pl in user.get("playlists", []) or []:
-            # VERIFICAÇÃO ADICIONADA: Ignora playlists que não são dicionários.
             if not isinstance(pl, dict):
                 continue
 
             nome = pl.get("nome")
             musicas = pl.get("musicas", []) or []
             
-            # Conta quantas vezes as músicas da playlist aparecem no histórico
             count = sum(normalized_hist.count(m) for m in musicas)
             
             if count > best_count:
