@@ -24,12 +24,3 @@ class Musica(Midia):
         
 
 
-
-m1 = Musica("Bohemian Rhapsody", "Queen" ,355, "Rock")
-
-m1.reproduzir()
-m1.avaliar(5)
-m1.avaliar(4)
-m1.avaliar(5)
-
-print(m1)

@@ -1,4 +1,3 @@
-
 import customtkinter as ctk
 from models import User
 from .utils import carregar_usuarios, salvar_usuarios, tocar_som, SOM_ACERTO

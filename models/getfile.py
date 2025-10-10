@@ -3,8 +3,7 @@ import json
 from .user import User
 from .musica import Musica
 
-filepath = 'aaa.md'
-
+filepath = None
 class MusicNotFoundError(Exception):
     pass
 
