@@ -9,7 +9,10 @@ from models.getfile import parse_data_file
 from .player import PlayerMusica
 
 #Boa sorte pra quem tentar entender esse código
-#Horas
+#Horas gastas tentando arrumar o ADMIN panel: 12
+
+
+
 pygame.mixer.init()
 
 SOM_ERRO = r"c:\Users\bernardo portalet\Downloads\necoarc-nyanyanya.mp3"
@@ -28,11 +31,63 @@ def tocar_som(caminho: str, volume: float = 0.3) -> None:
 
 
 def carregar_usuarios() -> dict:
-    if os.path.exists(ARQUIVO_USUARIOS):
-        with open(ARQUIVO_USUARIOS, "r", encoding="utf-8") as file:
-            usuarios = yaml.safe_load(file)
-            return usuarios if usuarios else {}
-    return {}
+    """
+    Lê usuarios.yaml e normaliza a estrutura para um dict:
+    { username: { 'nome': username, 'senha': ..., 'email': ..., 'historico': [], 'playlists': [], 'biblioteca': [] } }
+    Aceita entradas antigas como listas ou arquivos com lista de objetos e faz migração em memória.
+    """
+    if not os.path.exists(ARQUIVO_USUARIOS):
+        return {}
+
+    with open(ARQUIVO_USUARIOS, "r", encoding="utf-8") as file:
+        raw = yaml.safe_load(file)
+
+    if not raw:
+        return {}
+
+    # Se veio uma lista (ex.: [{nome: 'arthur', ...}, {...}]) -> transformar em dict
+    if isinstance(raw, list):
+        normalized = {}
+        for entry in raw:
+            if isinstance(entry, dict):
+                key = entry.get("nome") or entry.get("username") or entry.get("user") or None
+                if not key:
+                    # usa índice como fallback
+                    key = f"usuario_{len(normalized)+1}"
+                normalized[key] = entry
+            else:
+                continue
+        raw = normalized
+
+    usuarios_norm = {}
+    for key, val in raw.items():
+        if isinstance(val, list):
+            usuarios_norm[key] = {
+                "nome": key,
+                "senha": None,
+                "email": None,
+                "historico": [],
+                "playlists": val,
+                "biblioteca": [],
+            }
+            continue
+
+        if not isinstance(val, dict):
+            # valor estranho -> pular
+            continue
+
+        u = dict(val) 
+        # preencher chaves faltantes
+        u.setdefault("nome", key)
+        u.setdefault("senha", None)
+        u.setdefault("email", None)
+        u.setdefault("historico", [])
+        u.setdefault("playlists", [])
+        u.setdefault("biblioteca", [])
+        usuarios_norm[key] = u
+
+    return usuarios_norm
+
 
 
 def salvar_usuarios(usuarios: dict) -> None:
@@ -223,11 +278,9 @@ class AdminPage(ctk.CTkToplevel):
                     if title_text not in user["biblioteca"]:
                         user["biblioteca"].append(title_text)
 
-                # adiciona playlist ao usuário se ainda não existir
                 if not any(pl.get("nome") == name for pl in user["playlists"]):
                     user["playlists"].append({"nome": name, "musicas": titulos})
 
-            # processa playlists mencionadas dentro da seção de usuários (ex.: playlists: [A,B])
             for u in users_section:
                 username = u.get("nome")
                 if not username:
@@ -395,7 +448,7 @@ class ReportWindow(ctk.CTkToplevel):
 class AdminPlayerView(PlayerMusica):
     def __init__(self, master):
         admin_user = {"nome": "Admin", "senha": "admin", "email": None, "historico": [], "playlists": []}
-        super().__init__(master, admin_user)
+        super().__init__(master=master, usuario_logado=admin_user)
         self.title("Admin Player View")
         self.setup_admin_controls()
 
@@ -451,34 +504,170 @@ class AdminPlayerView(PlayerMusica):
 
     def switch_user(self, username: str) -> None:
         usuarios = carregar_usuarios()
-        if username in usuarios:
-            user = usuarios[username]
-            if "nome" not in user:
-                user["nome"] = username
-            self.usuario_logado = user
-            try:
-                self.user_var.set(username)
-            except Exception:
-                pass
-            self.atualizar_interface()
-            try:
-                self.carregar_dados_usuario()
-            except Exception:
-                pass
+        if username not in usuarios:
+            self.show_status(f"Usuário '{username}' não encontrado.", "red")
+            return
+
+        user = usuarios[username]
+
+        if isinstance(user, list):
+            user = {
+                "nome": username,
+                "senha": None,
+                "email": None,
+                "historico": [],
+                "playlists": user,
+                "biblioteca": [],
+            }
+
+        if not isinstance(user, dict):
+            user = {
+                "nome": username,
+                "senha": None,
+                "email": None,
+                "historico": [],
+                "playlists": [],
+                "biblioteca": [],
+            }
+
+        user.setdefault("nome", username)
+        user.setdefault("senha", None)
+        user.setdefault("email", None)
+        user.setdefault("historico", [])
+        user.setdefault("playlists", [])
+        user.setdefault("biblioteca", [])
+
+        self.usuario_logado = user
+        try:
+            self.user_var.set(username)
+        except Exception:
+            pass
+
+        self.atualizar_interface()
+        try:
+            self.carregar_dados_usuario()
+        except Exception:
+            pass
+
 
     def save_changes(self) -> None:
-        if self.usuario_logado:
-            usuarios = carregar_usuarios()
+        """
+        Salva alterações do usuário atual em usuarios.yaml e registra um log detalhado
+        em 'changes.log' incluindo diferenças aplicadas (detecta mudanças em listas/dicts).
+        """
+        import datetime
+        import traceback
+        import copy
+        import json
+
+        log_path = "changes.log"
+
+        try:
+            if not getattr(self, "usuario_logado", None):
+                msg = "Nenhum usuário carregado para salvar."
+                with open(log_path, "a", encoding="utf-8") as lf:
+                    lf.write(f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] SAVE_ATTEMPT - no user loaded\n{msg}\n\n")
+                self.show_status(msg, "red")
+                return
+
+            # carrega snapshot antes das mudanças
+            usuarios_before = carregar_usuarios()
+            snapshot_before = copy.deepcopy(usuarios_before)
+
+            usuarios = usuarios_before
             key = self.usuario_logado.get("nome") or (self.user_var.get() if hasattr(self, "user_var") else None)
             if not key:
                 existing_keys = list(usuarios.keys())
                 key = existing_keys[0] if existing_keys else None
-            if key:
-                usuarios[key] = self.usuario_logado
-                salvar_usuarios(usuarios)
-                self.show_status("Changes saved successfully!", "green")
-            else:
-                self.show_status("No valid user key to save.", "red")
+
+            if not key:
+                raise RuntimeError("Nenhuma chave válida encontrada para salvar o usuário.")
+
+            usuarios[key] = self.usuario_logado
+            salvar_usuarios(usuarios)
+
+            # recarrega arquivo salvo para comparação
+            usuarios_after = carregar_usuarios()
+            snapshot_after = copy.deepcopy(usuarios_after)
+
+            def diff_dict(prev: dict, new: dict) -> list[str]:
+                lines = []
+                keys = set(prev.keys()) | set(new.keys())
+                for k in sorted(keys):
+                    a = prev.get(k, None)
+                    b = new.get(k, None)
+                    if a == b:
+                        continue
+                    if isinstance(a, list) and isinstance(b, list):
+                        added = [i for i in b if i not in a]
+                        removed = [i for i in a if i not in b]
+                        if added:
+                            lines.append(f"{k} +added: {json.dumps(added, ensure_ascii=False)}")
+                        if removed:
+                            lines.append(f"{k} -removed: {json.dumps(removed, ensure_ascii=False)}")
+                    elif isinstance(a, dict) and isinstance(b, dict):
+                        try:
+                            if a != b:
+                                lines.append(f"{k}: {json.dumps(a, ensure_ascii=False)} -> {json.dumps(b, ensure_ascii=False)}")
+                        except Exception:
+                            lines.append(f"{k}: changed")
+                    else:
+                        lines.append(f"{k}: {a!r} -> {b!r}")
+                return lines
+
+            changes = []
+
+            # diffs do usuário específico
+            prev_user = snapshot_before.get(key, {})
+            new_user = snapshot_after.get(key, {})
+            user_changes = diff_dict(prev_user, new_user)
+            if user_changes:
+                changes.append(f"User '{key}' changes:")
+                changes.extend([f"  {ln}" for ln in user_changes])
+
+            # diffs da BIBLIOTECA global (se existir)
+            prev_lib = snapshot_before.get("BIBLIOTECA", [])
+            new_lib = snapshot_after.get("BIBLIOTECA", [])
+            if prev_lib != new_lib:
+                added = [m for m in new_lib if m not in prev_lib]
+                removed = [m for m in prev_lib if m not in new_lib]
+                if added or removed:
+                    changes.append("Global BIBLIOTECA changes:")
+                    if added:
+                        changes.append(f"  +added: {json.dumps(added, ensure_ascii=False)}")
+                    if removed:
+                        changes.append(f"  -removed: {json.dumps(removed, ensure_ascii=False)}")
+
+            if not changes:
+                changes = ["Nenhuma alteração detectada (salvamento forçado)."]
+
+            # grava log legível
+            ui_status = ""
+            try:
+                if hasattr(self, "status_label") and getattr(self.status_label, "cget", None):
+                    ui_status = self.status_label.cget("text") or ""
+            except Exception:
+                ui_status = ""
+
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_path, "a", encoding="utf-8") as lf:
+                lf.write(f"[{timestamp}] SAVE_CHANGES user={key}\n")
+                if ui_status:
+                    lf.write(f"  UI_STATUS: {ui_status}\n")
+                lf.write("  CHANGES:\n")
+                for line in changes:
+                    lf.write(f"    - {line}\n")
+                lf.write("\n")
+
+            self.show_status("Changes saved successfully!", "green")
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_path, "a", encoding="utf-8") as lf:
+                lf.write(f"[{timestamp}] ERROR saving changes: {e}\n")
+                lf.write(tb + "\n\n")
+            self.show_status("Error saving changes. See changes.log.", "red")
 
     def show_status(self, message: str, color: str = "green") -> None:
         if hasattr(self, "status_label"):
@@ -491,7 +680,6 @@ class AdminPlayerView(PlayerMusica):
         if isinstance(self.usuario_logado, dict):
             nome_exibicao = self.usuario_logado.get("nome") or self.usuario_logado.get("username")
         self.title(f"Admin View - {nome_exibicao or 'Unknown'}")
-        # Atualiza listas e estado visual; não iniciar reprodução automaticamente
         try:
             self.atualizar_lista_playlists()
         except Exception:
