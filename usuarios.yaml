@@ -1,13 +1,58 @@
-'1234':
-  email: 124@gmail.com
+Ana:
+  biblioteca:
+  - Bohemian Rhapsody
+  - Shape of You
+  - Lose Yourself
+  - Rolling in the Deep
+  email: null
   historico: []
-  inst: null
-  nome: '1234'
-  playlists: []
-  senha: '1234'
-Boic:
+  nome: Ana
+  playlists:
+  - musicas:
+    - Bohemian Rhapsody
+    - Shape of You
+    - Lose Yourself
+    nome: Favoritas
+  - musicas:
+    - Lose Yourself
+    - Rolling in the Deep
+    nome: Treino
+  - musicas: []
+    nome: aaa
+  senha: default123
+Beatriz:
+  biblioteca:
+  - História da Música
+  - Fur Elise
+  - Rolling in the Deep
+  - Cinema em Debate
   email: null
-  senha: '1234'
-arthur:
+  historico:
+  - C:/Users/Arthur/Downloads/Legião Urbana - Tempo Perdido (Ao Vivo Especial) -
+    Musicalidade (youtube).mp3
+  nome: Beatriz
+  playlists:
+  - musicas:
+    - História da Música
+    - Fur Elise
+    nome: Estudos
+  - musicas:
+    - Rolling in the Deep
+    - Cinema em Debate
+    nome: Chill
+  senha: default123
+Carlos:
+  biblioteca:
+  - Fur Elise
+  - Inteligência Artificial Hoje
   email: null
-  senha: '1232'
+  historico:
+  - C:/Users/Arthur/Downloads/Legião Urbana - Tempo Perdido (Ao Vivo Especial) -
+    Musicalidade (youtube).mp3
+  nome: Carlos
+  playlists:
+  - musicas:
+    - Fur Elise
+    - Inteligência Artificial Hoje
+    nome: Relax
+  senha: default123
